@@ -28,5 +28,6 @@ struct icmp_pack{
 struct icmp_mgr * icmp_gen(int nr);
 void icmp_send(struct icmp_mgr *mgr, in_addr_t serv_addr);
 void icmp_poll(struct icmp_mgr *mgr);
+void icmp_clean(struct icmp_mgr *mgr);
 
 #endif

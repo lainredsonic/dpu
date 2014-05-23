@@ -2,6 +2,8 @@
 #define __DPU_H__ 1
 
 #include <netinet/in.h>
+#include <pthread.h>
+
 #include "list.h"
 
 struct dpu{
@@ -13,6 +15,7 @@ struct dpu{
 	int health;
 	int health_thres;
 	struct list_head lh;
+	pthread_t tid;
 };
 
 extern struct list_head dpu_list;

@@ -43,6 +43,18 @@ in_cksum(uint16_t *addr, int len)
 }
 
 
+void icmp_clean(struct icmp_mgr *icmp_mgr){
+	struct icmp_pack *icmp_pack = NULL;
+	if(!icmp_mgr)
+		return;
+	list_for_each_entry(icmp_pack, &icmp_mgr->pack_head, list){
+		list_del(&icmp_pack->list);
+		free(icmp_pack);
+	}
+	free(icmp_mgr);
+	icmp_mgr = NULL;
+}
+
 struct icmp_mgr * icmp_gen(int nr){
 	int i;
 	struct icmp_mgr *icmp_mgr = malloc(sizeof(struct icmp_mgr));
@@ -103,12 +115,15 @@ void icmp_poll(struct icmp_mgr *mgr){
 	struct epoll_event ev[100];
 	struct icmp_mgr *ev_mgr;
 	int err_num;
-	int recv = 0;
+	int recv;
+	int pack_nr = mgr->pack_nr;
 	char buf[BUFSIZE];
-	while(mgr->pack_nr > 0){
+	while(pack_nr > 0){
+		recv = 0;
 		event_nr = epoll_wait(mgr->poll, (struct epoll_event *)&ev, 100, 1000);
+		err_num = errno;
 		if (event_nr < 0){
-			printf("timeout");
+			printf("epoll_wait error:%s\n", strerror(err_num));
 		}else if(event_nr == 0){
 			printf(".");
 			fflush(stdout);
@@ -135,7 +150,9 @@ void icmp_poll(struct icmp_mgr *mgr){
 */
 			}
 		}
-		ev_mgr->pack_nr -= recv;
+		pack_nr -= recv;
 	}
 	epoll_ctl(mgr->poll, EPOLL_CTL_DEL, mgr->fd, NULL);
+	close(mgr->fd);
+	close(mgr->poll);
 }
