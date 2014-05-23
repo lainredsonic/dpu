@@ -93,7 +93,6 @@ void icmp_send(struct icmp_mgr *mgr, in_addr_t serv_addr){
 		pack->icmp->icmp_cksum = 0;
 		pack->icmp->icmp_cksum = in_cksum((u_short *)pack->icmp, len);
 		sendto(pack->mgr->fd, (char *)(pack->icmp), len, 0, (struct sockaddr *)&addr, sizeof(struct sockaddr));
-//		sleep(1);
 	}
 }
 
@@ -138,4 +137,5 @@ void icmp_poll(struct icmp_mgr *mgr){
 		}
 		ev_mgr->pack_nr -= recv;
 	}
+	epoll_ctl(mgr->poll, EPOLL_CTL_DEL, mgr->fd, NULL);
 }
