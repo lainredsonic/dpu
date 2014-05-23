@@ -16,6 +16,7 @@ struct icmp_mgr{
 	int pack_nr;
 	int magic;
 	struct epoll_event ev;
+	struct icmp_pack *icmp_packs;
 };
 
 struct icmp_pack{

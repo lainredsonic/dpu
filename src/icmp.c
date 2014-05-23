@@ -44,15 +44,10 @@ in_cksum(uint16_t *addr, int len)
 
 
 void icmp_clean(struct icmp_mgr *icmp_mgr){
-	struct icmp_pack *icmp_pack = NULL;
 	if(!icmp_mgr)
 		return;
-	list_for_each_entry(icmp_pack, &icmp_mgr->pack_head, list){
-		list_del(&icmp_pack->list);
-		free(icmp_pack);
-	}
+	free(icmp_mgr->icmp_packs);
 	free(icmp_mgr);
-	icmp_mgr = NULL;
 }
 
 struct icmp_mgr * icmp_gen(int nr){
@@ -67,6 +62,7 @@ struct icmp_mgr * icmp_gen(int nr){
 		printf("nocmem\n");
 		exit(-ENOMEM);
 	}
+	icmp_mgr->icmp_packs = icmp_pack;
 	INIT_LIST_HEAD(&icmp_mgr->pack_head);
 	icmp_mgr->fd = socket(AF_INET, SOCK_RAW, IPPROTO_ICMP);
 	icmp_mgr->poll = epoll_create(nr);

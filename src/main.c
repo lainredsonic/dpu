@@ -14,7 +14,7 @@ void * dpu_task(void *args){
 	mgr = icmp_gen(dpu->pkg_nr);
 	icmp_send(mgr, dpu->serv_addr);
 	icmp_poll(mgr);
-//	icmp_clean(mgr);
+	icmp_clean(mgr);
 	return 0;
 }
 
