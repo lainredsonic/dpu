@@ -119,7 +119,9 @@ void icmp_poll(struct icmp_mgr *mgr){
 		event_nr = epoll_wait(mgr->poll, (struct epoll_event *)&ev, 100, 1000);
 		err_num = errno;
 		if (event_nr < 0){
-			printf("epoll_wait error:%s\n", strerror(err_num));
+			printf("epoll_wait error:%d,%s\n", err_num,strerror(err_num));
+			if(err_num == EINTR)
+				continue;
 		}else if(event_nr == 0){
 			printf(".");
 			fflush(stdout);
