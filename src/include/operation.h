@@ -16,5 +16,6 @@ int dpu_add(char *alias, char *ipaddr,
 int dpu_del(char *ipaddr);
 int dpu_set(char *ipaddr, unsigned short type);
 int dpu_health(char *ipaddr);
+void dpu_destory(void);
 
 #endif

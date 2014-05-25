@@ -35,12 +35,14 @@ int main(int argc,char **argv){
 	dpu_init();
 
 /* 		alias	|	ip	|dname|	nr|tmout|threas*/
-//	dpu_add("group2", "114.114.114.114", "www.google.com", 2, 10, 50);
-	dpu_add("group1", "192.168.6.51", "www.baidu.com", 2, 30, 40);
-	dpu_add("group3", "192.168.6.52", "www.baidu.com", 2, 30, 40);
+	dpu_add("group2", "114.114.114.114", "www.google.com", 2, 10, 50);
+	dpu_add("group7", "192.168.13.1", "www.google.com", 2, 10 ,50);
+//	dpu_add("group1", "192.168.6.51", "www.baidu.com", 2, 30, 40);
+//	dpu_add("group3", "192.168.6.52", "www.baidu.com", 2, 30, 40);
 //	dpu_add("group4", "8.8.4.4", "www.baidu.com", 20, 20, 40);
 //	dpu_add("group5", "8.8.8.8", "www.baidu.com", 20, 30, 40);
 //	dpu_add("group6", "192.168.6.33", "www.baidu.com", 100, 30, 40);
 	probe_loop();
+	dpu_destory();
 	return 0;
 }

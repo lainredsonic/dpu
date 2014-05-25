@@ -66,6 +66,16 @@ int dpu_del(char *serv_addr){
 		return -1;
 }
 
+void dpu_destory(){
+	struct list_head *pos, *n;
+	struct dpu *dpu_free;
+	list_for_each_safe(pos, n, &dpu_list){
+			dpu_free = list_entry(pos, struct dpu, lh);
+			list_del(&dpu_free->lh);
+			free(dpu_free);
+	}
+}
+
 int dpu_set(char *serv_addr, unsigned short type){
 	struct dpu *find_dpu = find_dpu_by_addr(serv_addr);
 
