@@ -5,6 +5,7 @@
 #include <netinet/ip_icmp.h>
 #include <arpa/inet.h>
 #include <sys/epoll.h>
+#include "dpu.h"
 #include "list.h"
 
 #define BUFSIZE 1500
@@ -17,6 +18,7 @@ struct icmp_mgr{
 	int magic;
 	struct epoll_event ev;
 	struct icmp_pack *icmp_packs;
+	struct dpu *dpu;
 };
 
 struct icmp_pack{
@@ -26,8 +28,8 @@ struct icmp_pack{
 	char buf[BUFSIZE];
 };
 
-struct icmp_mgr * icmp_gen(int nr);
-void icmp_send(struct icmp_mgr *mgr, in_addr_t serv_addr);
+struct icmp_mgr * icmp_gen(struct dpu *dpu);
+void icmp_send(struct icmp_mgr *mgr);
 void icmp_poll(struct icmp_mgr *mgr);
 void icmp_clean(struct icmp_mgr *mgr);
 

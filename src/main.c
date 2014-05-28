@@ -11,8 +11,8 @@
 void * dpu_task(void *args){
 	struct dpu *dpu = (struct dpu *)args;
 	struct icmp_mgr *mgr = NULL;
-	mgr = icmp_gen(dpu->pkg_nr);
-	icmp_send(mgr, dpu->serv_addr);
+	mgr = icmp_gen(dpu);
+	icmp_send(mgr);
 	icmp_poll(mgr);
 	icmp_clean(mgr);
 	return 0;
@@ -35,8 +35,8 @@ int main(int argc,char **argv){
 	dpu_init();
 
 /* 		alias	|	ip	|dname|	nr|tmout|threas*/
-	dpu_add("group2", "114.114.114.114", "www.google.com", 2, 10, 50);
-	dpu_add("group7", "192.168.13.1", "www.google.com", 2, 10 ,50);
+	dpu_add("group2", "114.114.114.114", "www.google.com", 2, 2, 50);
+	dpu_add("group7", "8.8.8.8", "www.google.com", 20, 20 ,50);
 //	dpu_add("group1", "192.168.6.51", "www.baidu.com", 2, 30, 40);
 //	dpu_add("group3", "192.168.6.52", "www.baidu.com", 2, 30, 40);
 //	dpu_add("group4", "8.8.4.4", "www.baidu.com", 20, 20, 40);

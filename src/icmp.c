@@ -6,6 +6,7 @@
 #include <syscall.h>
 #include <errno.h>
 #include <pthread.h>
+#include "dpu.h"
 #include "icmp.h"
 
 
@@ -50,8 +51,9 @@ void icmp_clean(struct icmp_mgr *icmp_mgr){
 	free(icmp_mgr);
 }
 
-struct icmp_mgr * icmp_gen(int nr){
+struct icmp_mgr * icmp_gen(struct dpu *dpu){
 	int i;
+	int nr = dpu->pkg_nr;
 	struct icmp_mgr *icmp_mgr = malloc(sizeof(struct icmp_mgr));
 	if(!icmp_mgr){
 		printf("nomem\n");
@@ -86,16 +88,17 @@ struct icmp_mgr * icmp_gen(int nr){
 		memset(pack->icmp->icmp_data, 0xab, DATALEN);
 		list_add(&pack->list, &pack->mgr->pack_head);
 	}
+	icmp_mgr->dpu = dpu;
 	return icmp_mgr;
 }
 
-void icmp_send(struct icmp_mgr *mgr, in_addr_t serv_addr){
+void icmp_send(struct icmp_mgr *mgr){
 	struct icmp_pack *pack;
 	struct sockaddr_in addr;
 	int len;
 	list_for_each_entry_reverse(pack, &mgr->pack_head, list){
 		addr.sin_family = AF_INET;
-		addr.sin_addr.s_addr = serv_addr;
+		addr.sin_addr.s_addr = mgr->dpu->serv_addr;
 		len = 8 + DATALEN;
 		gettimeofday((struct timeval *) pack->icmp->icmp_data, NULL);
 		pack->icmp->icmp_cksum = 0;
@@ -114,22 +117,29 @@ void icmp_poll(struct icmp_mgr *mgr){
 	int recv;
 	int pack_nr = mgr->pack_nr;
 	char buf[BUFSIZE];
+	struct sockaddr serv_addr;
+	socklen_t sl = sizeof(struct sockaddr);
+	int timeout = mgr->dpu->tm_out*1000;
+
 	while(pack_nr > 0){
 		recv = 0;
-		event_nr = epoll_wait(mgr->poll, (struct epoll_event *)&ev, 100, 1000);
+		event_nr = epoll_wait(mgr->poll, (struct epoll_event *)&ev, 100, timeout);
 		err_num = errno;
 		if (event_nr < 0){
 			printf("epoll_wait error:%d,%s\n", err_num,strerror(err_num));
 			if(err_num == EINTR)
 				continue;
 		}else if(event_nr == 0){
-			printf(".");
+//			printf(".");
 			fflush(stdout);
+			printf("%s timeout\n", mgr->dpu->alias);
+
+			break;
 		}
 //		printf("\tev nr:%d\n", event_nr);
 		for(i=0;i<event_nr;i++){
 			ev_mgr = (struct icmp_mgr *)((ev[i]).data.ptr);
-			n = read(ev_mgr->fd, &buf, BUFSIZE);
+			n =  recvfrom(ev_mgr->fd, &buf, BUFSIZE,  0, &serv_addr, &sl);
 			err_num = errno;
 			if (n == 0) {
 				printf("Read nothing");
@@ -137,7 +147,7 @@ void icmp_poll(struct icmp_mgr *mgr){
 				printf("read error:%s\n", strerror(err_num));
 			}else{
 				id = *((unsigned short *)&buf[0x18]);
-				if(id == ev_mgr->magic){
+				if(id == ev_mgr->magic && (((struct sockaddr_in *)&serv_addr)->sin_addr).s_addr == ev_mgr->dpu->serv_addr){
 					printf("icmp thread0x%x,id:0x%x\n", ev_mgr->magic,id);
 					recv++;
 				}
