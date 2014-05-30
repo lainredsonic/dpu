@@ -1,5 +1,5 @@
 #ifndef __DNS_H__
-#define __DNS_H__
+#define __DNS_H__ 1
 
 #include <string.h>
 #include <linux/types.h>
@@ -193,7 +193,6 @@ static const char CMPZ=0xc0;
 	}while(0)
 
 
-#endif
 
 extern const char domain_charset[64];
 
@@ -264,3 +263,4 @@ size_t static dns_fill_query(struct dnshdr_s *dnshdr, char *dname, __be16 id, __
 	dns_tail->dtype= dtype;
 	return (char *)dns_tail+sizeof(struct dns_tail_s)-(char *)dnshdr;
 }
+#endif

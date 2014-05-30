@@ -48,17 +48,25 @@ void icmp_clean(struct icmp_mgr *icmp_mgr){
 	if(!icmp_mgr)
 		return;
 	free(icmp_mgr->icmp_packs);
+	free(icmp_mgr->icmp_log);
 	free(icmp_mgr);
 }
 
 struct icmp_mgr * icmp_gen(struct dpu *dpu){
 	int i;
 	int nr = dpu->pkg_nr;
+
 	struct icmp_mgr *icmp_mgr = malloc(sizeof(struct icmp_mgr));
 	if(!icmp_mgr){
 		printf("nomem\n");
 		exit(-ENOMEM);
 	}
+	icmp_mgr->icmp_log = malloc(sizeof(struct icmp_log));
+	if(!icmp_mgr->icmp_log){
+		printf("nomem\n");
+		exit(-ENOMEM);
+	}
+
 	struct icmp_pack *icmp_pack = calloc(nr, sizeof(struct icmp_pack));
 	if(!icmp_pack){
 		printf("nocmem\n");
@@ -99,10 +107,12 @@ void icmp_send(struct icmp_mgr *mgr){
 	list_for_each_entry_reverse(pack, &mgr->pack_head, list){
 		addr.sin_family = AF_INET;
 		addr.sin_addr.s_addr = mgr->dpu->serv_addr;
+		addr.sin_port = 0;
 		len = 8 + DATALEN;
-		gettimeofday((struct timeval *) pack->icmp->icmp_data, NULL);
+//		gettimeofday((struct timeval *) pack->icmp->icmp_data, NULL);
 		pack->icmp->icmp_cksum = 0;
 		pack->icmp->icmp_cksum = in_cksum((u_short *)pack->icmp, len);
+		gettimeofday(&pack->tv, NULL);
 		sendto(pack->mgr->fd, (char *)(pack->icmp), len, 0, (struct sockaddr *)&addr, sizeof(struct sockaddr));
 	}
 }
@@ -117,9 +127,11 @@ void icmp_poll(struct icmp_mgr *mgr){
 	int recv;
 	int pack_nr = mgr->pack_nr;
 	char buf[BUFSIZE];
+	struct icmp *icmp=(struct icmp *)&buf[20];
 	struct sockaddr serv_addr;
 	socklen_t sl = sizeof(struct sockaddr);
 	int timeout = mgr->dpu->tm_out*1000;
+	unsigned int matched = 0;
 
 	while(pack_nr > 0){
 		recv = 0;
@@ -131,8 +143,8 @@ void icmp_poll(struct icmp_mgr *mgr){
 				continue;
 		}else if(event_nr == 0){
 //			printf(".");
-			fflush(stdout);
-			printf("%s timeout\n", mgr->dpu->alias);
+//			fflush(stdout);
+//			printf("%s timeout\n", mgr->dpu->alias);
 
 			break;
 		}
@@ -146,9 +158,13 @@ void icmp_poll(struct icmp_mgr *mgr){
 			}else if(n<0){
 				printf("read error:%s\n", strerror(err_num));
 			}else{
-				id = *((unsigned short *)&buf[0x18]);
+//				id = *((unsigned short *)&buf[0x18]);
+				id = icmp->icmp_id;
 				if(id == ev_mgr->magic && (((struct sockaddr_in *)&serv_addr)->sin_addr).s_addr == ev_mgr->dpu->serv_addr){
-					printf("icmp thread0x%x,id:0x%x\n", ev_mgr->magic,id);
+//					printf("icmp thread0x%x,id:0x%x, seq:%d\n", ev_mgr->magic, id, icmp->icmp_seq);
+					ev_mgr->icmp_log->lu[matched].nsent=icmp->icmp_seq;
+					gettimeofday(&ev_mgr->icmp_log->lu[matched].tv,NULL);
+					matched++;
 					recv++;
 				}
 /*
@@ -160,7 +176,46 @@ void icmp_poll(struct icmp_mgr *mgr){
 		}
 		pack_nr -= recv;
 	}
+	mgr->icmp_log->recv_pkg_nr=matched;
 	epoll_ctl(mgr->poll, EPOLL_CTL_DEL, mgr->fd, NULL);
 	close(mgr->fd);
 	close(mgr->poll);
+}
+
+unsigned int tv_diff(struct timeval *tv1, struct timeval *tv2)
+{
+	unsigned int udiff;
+	unsigned int diff;
+	udiff = (unsigned int)(tv1->tv_usec-tv2->tv_usec);
+	diff = (unsigned int)(tv1->tv_sec-tv2->tv_sec);
+	return (diff*1000000+udiff)/1000;
+}
+
+void icmp_acc(struct icmp_mgr *mgr){
+	struct icmp_log *log = mgr->icmp_log;
+	unsigned int lost = mgr->dpu->pkg_nr-log->recv_pkg_nr;
+	struct icmp_pack *icmp_pack = mgr->icmp_packs;
+	unsigned int diff;
+	unsigned int delay_sum = 0;
+	unsigned int delay_avg = 0;
+	unsigned int health = 0;
+
+
+	int i, j;
+	for(j=0; j<mgr->dpu->pkg_nr; j++)
+		for(i=0 ; i<log->recv_pkg_nr; i++){
+			if((icmp_pack+j)->icmp->icmp_seq == (log->lu[i]).nsent){
+				diff = tv_diff(&(log->lu[i].tv),&(icmp_pack+j)->tv);
+//			printf("delay:%d ms\n", diff);
+			delay_sum += diff;
+			}
+		}
+	if(log->recv_pkg_nr){
+		delay_avg = delay_sum/log->recv_pkg_nr;
+		health = delay_avg*25 + lost*3000;
+	}else{
+		delay_avg = -1;
+		health = -1;
+	}
+	printf("%s lost:%u, delay:%u, health:%u\n", mgr->dpu->alias, lost, delay_avg, health);
 }

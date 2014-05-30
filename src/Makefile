@@ -1,7 +1,7 @@
 APP=dpu
 
 CC=gcc
-CFLAGS += -g -O0 -fno-inline -Iinclude -pthread -Wall
+CFLAGS += -g -ggdb3 -O0 -fno-inline -Iinclude -pthread -Wall
 
 objects = main.o operation.o icmp.o
 
