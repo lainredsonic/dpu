@@ -113,7 +113,9 @@ void icmp_send(struct icmp_mgr *mgr){
 		pack->icmp->icmp_cksum = 0;
 		pack->icmp->icmp_cksum = in_cksum((u_short *)pack->icmp, len);
 		gettimeofday(&pack->tv, NULL);
-		sendto(pack->mgr->fd, (char *)(pack->icmp), len, 0, (struct sockaddr *)&addr, sizeof(struct sockaddr));
+		connect(pack->mgr->fd, (struct sockaddr *)&addr, sizeof(struct sockaddr));
+//		sendto(pack->mgr->fd, (char *)(pack->icmp), len, 0, (struct sockaddr *)&addr, sizeof(struct sockaddr));
+		write(pack->mgr->fd, (char *)(pack->icmp), len);
 	}
 }
 
@@ -160,7 +162,8 @@ void icmp_poll(struct icmp_mgr *mgr){
 			}else{
 //				id = *((unsigned short *)&buf[0x18]);
 				id = icmp->icmp_id;
-				if(id == ev_mgr->magic && (((struct sockaddr_in *)&serv_addr)->sin_addr).s_addr == ev_mgr->dpu->serv_addr){
+//				if(id == ev_mgr->magic && (((struct sockaddr_in *)&serv_addr)->sin_addr).s_addr == ev_mgr->dpu->serv_addr){
+				if(id == ev_mgr->magic){
 //					printf("icmp thread0x%x,id:0x%x, seq:%d\n", ev_mgr->magic, id, icmp->icmp_seq);
 					ev_mgr->icmp_log->lu[matched].nsent=icmp->icmp_seq;
 					gettimeofday(&ev_mgr->icmp_log->lu[matched].tv,NULL);
