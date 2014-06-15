@@ -20,9 +20,10 @@ struct dpu{
 	int health;		/* health value */
 	int health_thres;
 	struct list_head lh;
-	pthread_t tid;
 };
 
 extern struct list_head dpu_list; /* globle dpu list */
+extern pthread_mutex_t dpu_mutex;
+
 
 #endif

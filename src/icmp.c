@@ -6,7 +6,7 @@
 #include <syscall.h>
 #include <errno.h>
 #include <pthread.h>
-#include "dpu.h"
+
 #include "icmp.h"
 
 
@@ -14,14 +14,16 @@
 
 unsigned int nsent;
 
+struct list_head mgr_list;
+
 
 uint16_t
 in_cksum(uint16_t *addr, int len)
 {
-	int				nleft = len;
-	uint32_t		sum = 0;
-	uint16_t		*w = addr;
-	uint16_t		answer = 0;
+	int		nleft = len;
+	uint32_t	sum = 0;
+	uint16_t	*w = addr;
+	uint16_t	answer = 0;
 	/*
 	 * 	 * Our algorithm is simple, using a 32 bit accumulator (sum), we add
 	 *  	 * sequential 16 bit words to it, and at the end, fold back all the
@@ -49,18 +51,12 @@ void icmp_clean(struct icmp_mgr *icmp_mgr){
 		return;
 	free(icmp_mgr->icmp_packs);
 	free(icmp_mgr->icmp_log);
-	free(icmp_mgr);
 }
 
-struct icmp_mgr * icmp_gen(struct dpu *dpu){
+void icmp_gen(struct icmp_mgr *icmp_mgr){
 	int i;
-	int nr = dpu->pkg_nr;
+	int nr = icmp_mgr->pack_nr;
 
-	struct icmp_mgr *icmp_mgr = malloc(sizeof(struct icmp_mgr));
-	if(!icmp_mgr){
-		printf("nomem\n");
-		exit(-ENOMEM);
-	}
 	icmp_mgr->icmp_log = malloc(sizeof(struct icmp_log));
 	if(!icmp_mgr->icmp_log){
 		printf("nomem\n");
@@ -96,8 +92,6 @@ struct icmp_mgr * icmp_gen(struct dpu *dpu){
 		memset(pack->icmp->icmp_data, 0xab, DATALEN);
 		list_add(&pack->list, &pack->mgr->pack_head);
 	}
-	icmp_mgr->dpu = dpu;
-	return icmp_mgr;
 }
 
 void icmp_send(struct icmp_mgr *mgr){
@@ -106,7 +100,7 @@ void icmp_send(struct icmp_mgr *mgr){
 	int len;
 	list_for_each_entry_reverse(pack, &mgr->pack_head, list){
 		addr.sin_family = AF_INET;
-		addr.sin_addr.s_addr = mgr->dpu->serv_addr;
+		addr.sin_addr.s_addr = mgr->serv_addr;
 		addr.sin_port = 0;
 		len = 8 + DATALEN;
 //		gettimeofday((struct timeval *) pack->icmp->icmp_data, NULL);
@@ -132,7 +126,7 @@ void icmp_poll(struct icmp_mgr *mgr){
 	struct icmp *icmp=(struct icmp *)&buf[20];
 	struct sockaddr serv_addr;
 	socklen_t sl = sizeof(struct sockaddr);
-	int timeout = mgr->dpu->tm_out*1000;
+	int timeout = mgr->tm_out*1000;
 	unsigned int matched = 0;
 
 	while(pack_nr > 0){
@@ -170,11 +164,6 @@ void icmp_poll(struct icmp_mgr *mgr){
 					matched++;
 					recv++;
 				}
-/*
-				for(j=0;j<56;j++){
-					printf("%u:id:0x%x\n", (unsigned int)pthread_self(), (mgr->recvbuf)[j]&0xff);
-				}
-*/
 			}
 		}
 		pack_nr -= recv;
@@ -196,7 +185,7 @@ unsigned int tv_diff(struct timeval *tv1, struct timeval *tv2)
 
 void icmp_acc(struct icmp_mgr *mgr){
 	struct icmp_log *log = mgr->icmp_log;
-	unsigned int lost = mgr->dpu->pkg_nr-log->recv_pkg_nr;
+	unsigned int lost = mgr->pack_nr-log->recv_pkg_nr;
 	struct icmp_pack *icmp_pack = mgr->icmp_packs;
 	unsigned int diff;
 	unsigned int delay_sum = 0;
@@ -205,11 +194,10 @@ void icmp_acc(struct icmp_mgr *mgr){
 
 
 	int i, j;
-	for(j=0; j<mgr->dpu->pkg_nr; j++)
+	for(j=0; j<mgr->pack_nr; j++)
 		for(i=0 ; i<log->recv_pkg_nr; i++){
 			if((icmp_pack+j)->icmp->icmp_seq == (log->lu[i]).nsent){
 				diff = tv_diff(&(log->lu[i].tv),&(icmp_pack+j)->tv);
-//			printf("delay:%d ms\n", diff);
 			delay_sum += diff;
 			}
 		}
@@ -220,5 +208,8 @@ void icmp_acc(struct icmp_mgr *mgr){
 		delay_avg = -1;
 		health = -1;
 	}
-	printf("%s lost:%u, delay:%u, health:%u\n", mgr->dpu->alias, lost, delay_avg, health);
+	mgr->icmp_log->delay_sum = delay_sum;
+	mgr->icmp_log->delay_avg = delay_avg;
+	mgr->icmp_log->lost = lost;
+	mgr->icmp_log->health = health;
 }
