@@ -6,18 +6,23 @@
 
 #include "list.h"
 
+/* Dns Probe Unit
+ * only activity for interface
+ * all dpu operation must be protect
+ */
+
 struct dpu{
-	char alias[256];
-	char dname[256];
-	in_addr_t serv_addr;
-	unsigned short pkg_nr;
-	unsigned short tm_out;
-	int health;
+	char alias[256];	/* alias name for traget server */
+	char dname[256];	/* human readable domain name */
+	in_addr_t serv_addr;	/* target server ipv4 addr */
+	unsigned short pkg_nr;	/* number of probe packet */ 
+	unsigned short tm_out;	/* timeout of probe response */
+	int health;		/* health value */
 	int health_thres;
 	struct list_head lh;
 	pthread_t tid;
 };
 
-extern struct list_head dpu_list;
+extern struct list_head dpu_list; /* globle dpu list */
 
 #endif
