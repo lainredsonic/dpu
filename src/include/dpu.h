@@ -3,6 +3,7 @@
 
 #include <netinet/in.h>
 #include <pthread.h>
+#include <linux/types.h>
 
 #include "list.h"
 
@@ -15,6 +16,7 @@ struct dpu{
 	char alias[256];	/* alias name for traget server */
 	char dname[256];	/* human readable domain name */
 	in_addr_t serv_addr;	/* target server ipv4 addr */
+	__be16 ns_type;
 	unsigned short pkg_nr;	/* number of probe packet */ 
 	unsigned short tm_out;	/* timeout of probe response */
 	int health;		/* health value */

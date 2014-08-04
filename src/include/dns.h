@@ -249,7 +249,7 @@ size_t static dns_q_set(struct dnshdr_s *dnshdr, char *dname)
  * return size of dns query
  */
 
-size_t static dns_fill_query(struct dnshdr_s *dnshdr, char *dname, __be16 id, __be16 flags, __be16 dclass, __be16 dtype)
+static inline size_t dns_fill_query(struct dnshdr_s *dnshdr, char *dname, __be16 id, __be16 flags, __be16 dclass, __be16 dtype)
 {
 	struct dns_tail_s *dns_tail;
 	dnshdr->id = __cpu_to_be16(id);

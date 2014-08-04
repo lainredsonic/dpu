@@ -3,6 +3,7 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <errno.h>
+#include <sys/types.h>
 
 #include "list.h"
 #include "dpu.h"
@@ -30,7 +31,7 @@ void dpu_init(){
 }
 
 int dpu_add(char *alias, char *serv_addr,
-		char *dname, unsigned short pkg_nr,
+		char *dname, __be16 ns_type, unsigned short pkg_nr,
 		unsigned short timeout, int health_thres)
 {
 	struct in_addr in_addr;
@@ -49,6 +50,7 @@ int dpu_add(char *alias, char *serv_addr,
 	tmp_dpu->serv_addr = in_addr.s_addr;
 	strcpy(tmp_dpu->dname, dname);
 	tmp_dpu->pkg_nr = pkg_nr;
+	tmp_dpu->ns_type = ns_type;
 	tmp_dpu->tm_out = timeout;
 	tmp_dpu->health_thres = health_thres;
 	list_add(&tmp_dpu->lh, &dpu_list);

@@ -7,12 +7,11 @@
 #include <errno.h>
 #include <pthread.h>
 
+#include "utils.h"
 #include "icmp.h"
 
 
 #define DATALEN 56
-
-unsigned int nsent;
 
 struct list_head mgr_list;
 
@@ -174,6 +173,7 @@ void icmp_poll(struct icmp_mgr *mgr){
 	close(mgr->poll);
 }
 
+/*
 unsigned int tv_diff(struct timeval *tv1, struct timeval *tv2)
 {
 	unsigned int udiff;
@@ -182,6 +182,7 @@ unsigned int tv_diff(struct timeval *tv1, struct timeval *tv2)
 	diff = (unsigned int)(tv1->tv_sec-tv2->tv_sec);
 	return (diff*1000000+udiff)/1000;
 }
+*/
 
 void icmp_acc(struct icmp_mgr *mgr){
 	struct icmp_log *log = mgr->icmp_log;
