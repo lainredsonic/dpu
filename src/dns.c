@@ -6,6 +6,8 @@
 #include <syscall.h>
 #include <errno.h>
 #include <pthread.h>
+#include <error.h>
+#include <errno.h>
 
 #include "utils.h"
 #include "dns_d.h"
@@ -42,13 +44,21 @@ void dns_gen(struct dns_mgr *dns_mgr)
 	dns_mgr->dns_packs = dns_pack;
 	INIT_LIST_HEAD(&dns_mgr->pack_head);
 	dns_mgr->fd = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
+	if(-1 == dns_mgr->fd){
+		error_at_line(1, errno, __FILE__, __LINE__, "[error] create dpu mgr fd failed" );
+	}
 	dns_mgr->epoll = epoll_create(nr);
+	if(-1 == dns_mgr->epoll){
+		error_at_line(1, errno, __FILE__, __LINE__, "[error] create dpu mgr epoll failed" );
+	}
 	dns_mgr->nsent = 0;
 //	dns_mgr->pack_nr = nr;
 
 	dns_mgr->ev.events = EPOLLIN;
 	(dns_mgr->ev).data.ptr = dns_mgr;
-	epoll_ctl(dns_mgr->epoll, EPOLL_CTL_ADD, dns_mgr->fd, &dns_mgr->ev);
+	if (-1 == (epoll_ctl(dns_mgr->epoll, EPOLL_CTL_ADD, dns_mgr->fd, &dns_mgr->ev))){
+		error_at_line(1, errno, __FILE__, __LINE__, "[error] dpu mgr epoll_ctl failed" );
+	}
 	for(i=0; i<nr; i++){
 		struct dns_pack *pack = dns_pack+i;
 		INIT_LIST_HEAD(&pack->list);
@@ -70,10 +80,21 @@ void dns_send(struct dns_mgr *mgr)
 		addr.sin_family = AF_INET;
 		addr.sin_addr.s_addr = mgr->serv_addr;
 		addr.sin_port = htons(53);
-		gettimeofday(&pack->tv, NULL);
-		connect(pack->mgr->fd, (struct sockaddr *)&addr, sizeof(struct sockaddr));
+		if(gettimeofday(&pack->tv, NULL)){
+			error_at_line(1, errno, __FILE__, __LINE__, "[error] dpu pack timestamp failed" );
+		}
+		if(connect(pack->mgr->fd, (struct sockaddr *)&addr, sizeof(struct sockaddr))){
+			error_at_line(1, errno, __FILE__, __LINE__, "[error] dpu pack connect" );
+		}
 //		sendto(pack->mgr->fd, (char *)(pack->dns), len, 0, (struct sockaddr *)&addr, sizeof(struct sockaddr));
-		write(pack->mgr->fd, (char *)(pack->dns), pack->len);
+try:	
+		if(-1 == write(pack->mgr->fd, (char *)(pack->dns), pack->len)){
+			if(errno == EAGAIN || errno == EINTR){
+				goto try;
+			}else{
+				error_at_line(1, errno, __FILE__, __LINE__, "[error] dpu pack write" );
+			}
+		}
 	}
 }
 
@@ -84,7 +105,6 @@ void dns_poll(struct dns_mgr *mgr)
 //	unsigned short id;
 	struct epoll_event ev[100];
 	struct dns_mgr *ev_mgr;
-	int err_num;
 	int recv;
 	int pack_nr = mgr->pack_nr;
 	char buf[DNS_BUFSIZE];
@@ -95,13 +115,13 @@ void dns_poll(struct dns_mgr *mgr)
 	unsigned int matched = 0;
 
 	while(pack_nr > 0){
-		recv = 0;
 		event_nr = epoll_wait(mgr->epoll, (struct epoll_event *)&ev, 100, timeout);
-		err_num = errno;
-		if (event_nr < 0){
-			printf("epoll_wait error:%d,%s\n", err_num,strerror(err_num));
-			if(err_num == EINTR)
+		if(event_nr < 0){
+			if(errno == EAGAIN || errno == EINTR){
 				continue;
+			}else{
+				error_at_line(1, errno, __FILE__, __LINE__, "[error] dpu epoll wait failed");
+			}
 		}else if(event_nr == 0){
 //			printf(".");
 //			fflush(stdout);
@@ -110,14 +130,14 @@ void dns_poll(struct dns_mgr *mgr)
 			break;
 		}
 //		printf("\tev nr:%d\n", event_nr);
+		recv = 0;
 		for(i=0;i<event_nr;i++){
 			ev_mgr = (struct dns_mgr *)((ev[i]).data.ptr);
 			n =  recvfrom(ev_mgr->fd, &buf, DNS_BUFSIZE,  0, &serv_addr, &sl);
-			err_num = errno;
 			if (n == 0) {
 				printf("Read nothing");
 			}else if(n<0){
-				printf("read error:%s\n", strerror(err_num));
+				error_at_line(1, errno, __FILE__, __LINE__, "[error] dpu epoll wait failed");
 			}else{
 //				printf("dns thread0x%x,id:0x%x, seq:%d\n", ev_mgr->magic, id, dns->dns_seq);
 				ev_mgr->dns_log->lu[matched].id=dns->id;
@@ -129,9 +149,25 @@ void dns_poll(struct dns_mgr *mgr)
 		pack_nr -= recv;
 	}
 	mgr->dns_log->recv_pkg_nr=matched;
-	epoll_ctl(mgr->epoll, EPOLL_CTL_DEL, mgr->fd, NULL);
-	close(mgr->fd);
-	close(mgr->epoll);
+	if(-1 == epoll_ctl(mgr->epoll, EPOLL_CTL_DEL, mgr->fd, NULL)){
+		error_at_line(1, errno, __FILE__, __LINE__, "[error] dpu mgr epoll_ctl failed" );
+	}
+try1:
+	if(-1 == close(mgr->fd)){
+		if(errno == EAGAIN || errno == EINTR){
+			goto try1;
+		}else{
+			error_at_line(1, errno, __FILE__, __LINE__, "[error] dpu close fd failed");
+		}
+	}
+try2:
+	if(-1 == close(mgr->epoll)){
+		if(errno == EAGAIN || errno == EINTR){
+			goto try2;
+		}else{
+			error_at_line(1, errno, __FILE__, __LINE__, "[error] dpu close epoll failed");
+		}
+	}
 }
 
 void dns_acc(struct dns_mgr *mgr)

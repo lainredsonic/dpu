@@ -5,9 +5,9 @@
 #include <string.h>
 #include <libgen.h>
 
+#include "dpu.h"
 #include "operation.h"
 #include "dns_d.h"
-#include "dpu.h"
 #include "clib/log.h"
 
 void usage(char *cmd){
@@ -28,15 +28,17 @@ void * dpu_task(void *args){
 
 void probe_loop(){
 	struct dpu *dpu;
-	struct dns_mgr *mgr;
+	struct dns_mgr *mgr = NULL;
 	struct list_head *pos, *n;
 	struct tm *tm;
 	time_t ct;
 	char tmstr[64];
 
-	pthread_mutex_lock(&dpu_mutex);
+	DPU_LOCK(&dpu_mutex);
 	list_for_each_entry(dpu, &dpu_list, lh){
-		mgr = (struct dns_mgr *)malloc(sizeof(struct dns_mgr));
+		if(!(mgr = (struct dns_mgr *)malloc(sizeof(struct dns_mgr)))){
+			error_at_line(1, errno, __FILE__, __LINE__, "[error] alloc dpu mgr failed");
+		}
 		strcpy(mgr->alias, dpu->alias);
 		strcpy(mgr->dname, dpu->dname);
 		mgr->serv_addr = dpu->serv_addr;
@@ -45,28 +47,29 @@ void probe_loop(){
 		mgr->ns_type = dpu->ns_type;
 		list_add(&mgr->mh, &dns_mgr_list);
 	}
-	pthread_mutex_unlock(&dpu_mutex);
+	DPU_UNLOCK(&dpu_mutex);
 
 	list_for_each_entry(mgr, &dns_mgr_list, mh){
-		pthread_create(&mgr->tid, NULL, dpu_task, (void *)mgr);
+		pthread_create_or_die(&mgr->tid, NULL, dpu_task, (void *)mgr);
 //		pthread_detach(mgr->tid);
 	}
 
 	list_for_each_safe(pos, n, &dns_mgr_list){
 		mgr = list_entry(pos, struct dns_mgr, mh);
-		pthread_join(mgr->tid, NULL);
+		pthread_join_or_warn(mgr->tid, NULL);
 		time(&ct);
 		tm = localtime(&ct);
 		strftime(tmstr, 64, "%F %T",tm);
 		printf("[%-10s] %-15s lost:%8u, delay:%8u, health:%8u\n", tmstr, mgr->alias, mgr->dns_log->lost, mgr->dns_log->delay_avg, mgr->dns_log->health);
 		LOG(LOG_LEVEL_TRACE, "[%-10s] %-15s lost:%8u, delay:%8u, health:%8u", tmstr, mgr->alias, mgr->dns_log->lost, mgr->dns_log->delay_avg, mgr->dns_log->health);
-		pthread_mutex_lock(&dpu_mutex);
+
+		DPU_LOCK(&dpu_mutex);
 		list_for_each_entry(dpu, &dpu_list, lh){
 			if(!strcmp(dpu->dname, mgr->dname)){
 				dpu->health = mgr->dns_log->health;
 			}
 		}
-		pthread_mutex_unlock(&dpu_mutex);
+		DPU_UNLOCK(&dpu_mutex);
 		list_del(&mgr->mh);
 		free(mgr);
 	}
@@ -139,7 +142,9 @@ int main(int argc,char **argv){
 //	dpu_add("group6", "192.168.6.179", "www.baidu.com", NS_TYPE_A, 100, 5, 40);
 ////	dpu_add("group8", "192.168.13.1", "www.baidu.com", NS_TYPE_A, 100, 5, 40);
 	for(i=0; i<server_count; i++)
-		dpu_add(argv[i+optind], argv[i+optind], dname, NS_TYPE_A, count, tmout, 2000);
+		if(dpu_add(argv[i+optind], argv[i+optind], dname, NS_TYPE_A, count, tmout, 2000)){
+			error_at_line(1, errno, __FILE__, __LINE__, "[error] dpu add dname");
+		}
 
 	if(loops == 0){
 		for(;;){

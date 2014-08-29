@@ -11,6 +11,7 @@
 
 struct list_head dpu_list;
 pthread_mutex_t dpu_mutex;
+pthread_mutexattr_t mutex_attr;
 
 struct dpu * find_dpu_by_addr(char *serv_addr){
 	struct dpu *tmp_dpu, *find_dpu=NULL;
@@ -27,7 +28,12 @@ struct dpu * find_dpu_by_addr(char *serv_addr){
 
 void dpu_init(){
 	INIT_LIST_HEAD(&dpu_list);
-	pthread_mutex_init(&dpu_mutex, NULL);
+	if(pthread_mutexattr_settype(&mutex_attr, PTHREAD_MUTEX_ERRORCHECK)){
+		error_at_line(0, errno, __FILE__, __LINE__, "[warn] set mutex attr failed");
+	}
+	if(pthread_mutex_init(&dpu_mutex, &mutex_attr)){
+		error_at_line(1, errno, __FILE__, __LINE__, "[error] init mutex failed");
+	}
 }
 
 int dpu_add(char *alias, char *serv_addr,
@@ -75,6 +81,9 @@ void dpu_destory(){
 			dpu_free = list_entry(pos, struct dpu, lh);
 			list_del(&dpu_free->lh);
 			free(dpu_free);
+	}
+	if(pthread_mutex_destroy(&dpu_mutex)){
+		error_at_line(0, errno, __FILE__, __LINE__, "[warn] dpu mutex destroy failed");
 	}
 }
 
