@@ -1,20 +1,45 @@
 APP=dpu
+config_tool=config_tool
 
 CC=gcc
-CFLAGS += -g -ggdb3 -O0 -fno-inline -Iinclude -pthread -Wall -Iclib/include -static
-LIBS = -Lclib/lib -lclib
+INC=-Iclib/include -Iinclude
+LIBS = -Lclib/lib -lclib -static
+CFLAGS += -g -ggdb3 -O0 -fno-inline -pthread -Wall $(INC) -static
 
-#objects = main.o operation.o icmp.o dns.o utils.o clib/lib/libclib.a
-objects = main.o operation.o icmp.o dns.o utils.o
+dpu_core_obj = main.o operation.o icmp.o dns.o utils.o server.o
+config_tool_obj = config_tool.o
 
-.PHONY: all clean
-all: $(objects)
+dpu_core_dep = $(dpu_core_obj:.o=.d)
+config_tool_dep = $(config_tool_obj:.o=.d)
+
+
+.PHONY: all clean dep
+
+all: dep dpu config_tool
+
+-include $(dpu_core_dep) $(config_tool_dep)
+
+$(dpu_core_dep):%.d:%.c 
+	@echo [DEP] $@;\
+$(CC) -MM $(INC) $< > $@
+
+$(config_tool_dep):%.d:%.c 
+	@echo [DEP] $@;\
+$(CC) -MM $< $(INC) > $@
+
+dep: $(dpu_core_dep) $(config_tool_dep)
+
+dpu: $(dpu_core_obj)
+	@echo [LD] $@;\
 	$(CC) $(CFLAGS) $^ -o $(APP) $(LIBS)
 
-$(objects):%.o:%.c
+config_tool: $(config_tool_obj)
+	@echo [LD] $@;\
+	$(CC) $(CFLAGS) $^ -o $(config_tool) $(LIBS)
+
+$(dpu_core_obj) $(config_tool_obj) :%.o:%.c %.d
 	@echo [CC] $@;\
 $(CC) -c $(CFLAGS) $< -o $@
 
-
 clean:
-	rm -rf *.o $(APP)
+	rm -rf *.o $(APP) $(config_tool) *.d

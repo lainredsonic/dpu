@@ -8,6 +8,7 @@
 #include "list.h"
 #include "dpu.h"
 #include "operation.h"
+#include "server.h"
 
 struct list_head dpu_list;
 pthread_mutex_t dpu_mutex;
@@ -34,6 +35,7 @@ void dpu_init(){
 	if(pthread_mutex_init(&dpu_mutex, &mutex_attr)){
 		error_at_line(1, errno, __FILE__, __LINE__, "[error] init mutex failed");
 	}
+	config_server_init();
 }
 
 int dpu_add(char *alias, char *serv_addr,
@@ -77,6 +79,9 @@ int dpu_del(char *serv_addr){
 void dpu_destory(){
 	struct list_head *pos, *n;
 	struct dpu *dpu_free;
+	
+	config_server_destory();
+
 	list_for_each_safe(pos, n, &dpu_list){
 			dpu_free = list_entry(pos, struct dpu, lh);
 			list_del(&dpu_free->lh);
