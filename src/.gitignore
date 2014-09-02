@@ -1,0 +1,6 @@
+*.o
+*.d
+dpu
+config_tool
+cscope.*
+tags
