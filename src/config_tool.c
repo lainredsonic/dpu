@@ -9,9 +9,9 @@
 #include <stdlib.h>
 #include <libgen.h>
 
+#include "config_tool.h"
 #include "server.h"
 
-#define SOCK_CLIENT_PATH "/tmp/.dpu_client.sock"
 
 int main(int argc, char **argv)
 {
@@ -62,13 +62,21 @@ int main(int argc, char **argv)
 		config.opt = DPU_ADD;
 	}else if(!(strcmp(argv[1], "del"))){
 		config.opt = DPU_DEL;
+	}else if(!(strcmp(argv[1], "get"))){
+		config.opt = DPU_GET;
 	}else{
 		printf("unknown opt type\n");
 		exit(1);
 	}
 
 	if(sendto(sockfd, buf, sizeof(struct payload), 0, (struct sockaddr *)&serveraddr, sizeof(struct sockaddr_un))<0){
-		error_at_line(1, errno, __FILE__, __LINE__, "[ERROR] config_server send");
+		error_at_line(1, errno, __FILE__, __LINE__, "[ERROR] config_server send failed");
+	}
+	if(config.opt == DPU_GET){
+		if(recvfrom(sockfd, buf, sizeof(struct payload), 0, NULL, NULL)<0){
+			error_at_line(1, errno, __FILE__, __LINE__, "[ERROR] config_server recv failed");
+		}
+		printf("health: %d\n", config.health);
 	}
 	return 0;
 }

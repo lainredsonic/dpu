@@ -7,6 +7,7 @@
 enum{
 	DPU_ADD=0,
 	DPU_DEL,
+	DPU_GET,
 };
 
 struct payload
@@ -17,6 +18,7 @@ struct payload
 	unsigned short nr;
 	unsigned short tmout;
 	unsigned short thres;
+	int health;
 	char dname[512];
 	char alias[32];
 }__attribute__ ((packed));

@@ -17,14 +17,16 @@ int dpu_exit;
 
 void do_work(int listenfd)
 {
-	char buf[512];
+	size_t len = sizeof(struct payload);
+	char buf[len];
 	struct payload *config = (struct payload *)buf;
-	ssize_t len;
+	struct sockaddr client;
+	socklen_t client_len = sizeof(struct sockaddr_un);
 
-	memset(buf, 0 ,512);
+	memset(buf, 0 ,len);
 
 again:
-	if((len=recvfrom(listenfd, buf, sizeof(struct payload), 0, NULL, NULL))<0){
+	if((len=recvfrom(listenfd, buf, sizeof(struct payload), 0, &client, &client_len))<0){
 		if(errno == EINTR)
 			goto again;
 		else
@@ -44,6 +46,14 @@ again:
 			DPU_LOCK(&dpu_mutex);
 			dpu_del(config->alias);
 			DPU_UNLOCK(&dpu_mutex);
+			break;
+		case DPU_GET:
+			DPU_LOCK(&dpu_mutex);
+			config->health = dpu_health(config->alias);
+			DPU_UNLOCK(&dpu_mutex);
+//			printf("health:%d\n", config->health);
+			if(sendto(listenfd, buf, len, 0, &client, client_len)<0)
+				error_at_line(0, errno, __FILE__, __LINE__, "[WARN] config_server send failed");
 			break;
 		default:
 			break;
