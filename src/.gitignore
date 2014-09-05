@@ -4,3 +4,4 @@ dpu
 config_tool
 cscope.*
 tags
+*.un~
