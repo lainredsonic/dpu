@@ -20,7 +20,7 @@ struct dns_log{
 	struct dns_lu lu[255];
 	unsigned int delay_sum;
 	unsigned int delay_avg;
-	unsigned int lost;
+	unsigned short lost;
 	unsigned int health; 
 };
 
