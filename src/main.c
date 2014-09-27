@@ -65,11 +65,13 @@ void probe_loop(){
 
 		DPU_LOCK(&dpu_mutex);
 		list_for_each_entry(dpu, &dpu_list, lh){
-			if(!strcmp(dpu->dname, mgr->dname)){
+//			if(!strcmp(dpu->dname, mgr->dname)){
+			if(dpu->serv_addr == mgr->serv_addr){
 				dpu->health = mgr->dns_log->health;
 			}
 		}
 		DPU_UNLOCK(&dpu_mutex);
+		free(mgr->dns_log);
 		list_del(&mgr->mh);
 		free(mgr);
 	}

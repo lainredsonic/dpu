@@ -21,7 +21,7 @@ void dns_clean(struct dns_mgr *dns_mgr)
 	if(!dns_mgr)
 		return;
 	free(dns_mgr->dns_packs);
-	free(dns_mgr->dns_log);
+//	free(dns_mgr->dns_log);
 }
 
 void dns_gen(struct dns_mgr *dns_mgr)
@@ -83,7 +83,7 @@ void dns_send(struct dns_mgr *mgr)
 		if(gettimeofday(&pack->tv, NULL)){
 			error_at_line(1, errno, __FILE__, __LINE__, "[error] dpu pack timestamp failed" );
 		}
-		if(connect(pack->mgr->fd, (struct sockaddr *)&addr, sizeof(struct sockaddr))){
+		if(connect(pack->mgr->fd, (struct sockaddr *)&addr, sizeof(struct sockaddr_in))){
 			error_at_line(1, errno, __FILE__, __LINE__, "[error] dpu pack connect" );
 		}
 //		sendto(pack->mgr->fd, (char *)(pack->dns), len, 0, (struct sockaddr *)&addr, sizeof(struct sockaddr));
@@ -103,14 +103,14 @@ void dns_poll(struct dns_mgr *mgr)
 	int event_nr, i, n;
 //	int j;
 //	unsigned short id;
-	struct epoll_event ev[100];
+	struct epoll_event ev[65536];
 	struct dns_mgr *ev_mgr;
 	int recv;
 	int pack_nr = mgr->pack_nr;
 	char buf[DNS_BUFSIZE];
 	struct dnshdr_s *dns=(struct dnshdr_s *)buf;
 	struct sockaddr serv_addr;
-	socklen_t sl = sizeof(struct sockaddr);
+	socklen_t sl = sizeof(struct sockaddr_in);
 	int timeout = mgr->tm_out*1000;
 	unsigned int matched = 0;
 
@@ -133,11 +133,15 @@ void dns_poll(struct dns_mgr *mgr)
 		recv = 0;
 		for(i=0;i<event_nr;i++){
 			ev_mgr = (struct dns_mgr *)((ev[i]).data.ptr);
+reread:			
 			n =  recvfrom(ev_mgr->fd, &buf, DNS_BUFSIZE,  0, &serv_addr, &sl);
 			if (n == 0) {
 				printf("Read nothing");
 			}else if(n<0){
-				error_at_line(1, errno, __FILE__, __LINE__, "[error] dpu epoll wait failed");
+				if(errno == EAGAIN || errno == EINTR || errno == EWOULDBLOCK)
+					goto reread;
+				else
+					error_at_line(0, errno, __FILE__, __LINE__, "[warn] dpu epoll wait failed"); //############
 			}else{
 //				printf("dns thread0x%x,id:0x%x, seq:%d\n", ev_mgr->magic, id, dns->dns_seq);
 				ev_mgr->dns_log->lu[matched].id=dns->id;
@@ -173,13 +177,12 @@ try2:
 void dns_acc(struct dns_mgr *mgr)
 {
 	struct dns_log *log = mgr->dns_log;
-	unsigned int lost = mgr->pack_nr-log->recv_pkg_nr;
+	unsigned short lost = mgr->pack_nr - log->recv_pkg_nr;
 	struct dns_pack *dns_pack = mgr->dns_packs;
 	unsigned int diff;
 	unsigned int delay_sum = 0;
 	unsigned int delay_avg = 0;
 	unsigned int health = 0;
-
 
 	int i, j;
 	for(j=0; j<mgr->pack_nr; j++)
